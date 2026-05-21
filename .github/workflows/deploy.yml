@@ -1,0 +1,47 @@
+name: Deploy to Hostinger FTP
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Permite disparar la acción manualmente desde la interfaz de GitHub
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy website
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🔍 Obtener código fuente
+        uses: actions/checkout@v4
+
+      - name: 🟢 Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: Garden/package-lock.json
+
+      - name: 📦 Instalar dependencias
+        working-directory: Garden
+        run: npm ci
+
+      - name: 🛠️ Compilar aplicación Next.js (Exportación Estática)
+        working-directory: Garden
+        env:
+          NEXT_PUBLIC_WORDPRESS_URL: ${{ secrets.NEXT_PUBLIC_WORDPRESS_URL }}
+          NEXT_PUBLIC_WOOCOMMERCE_URL: ${{ secrets.NEXT_PUBLIC_WOOCOMMERCE_URL }}
+          WOOCOMMERCE_CONSUMER_KEY: ${{ secrets.WOOCOMMERCE_CONSUMER_KEY }}
+          WOOCOMMERCE_CONSUMER_SECRET: ${{ secrets.WOOCOMMERCE_CONSUMER_SECRET }}
+        run: npm run build
+
+      - name: 🚀 Sincronizar archivos con Hostinger vía FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT || 21 }}
+          local-dir: ./Garden/out/
+          server-dir: ${{ secrets.FTP_SERVER_DIR || 'public_html/' }}
+          protocol: ${{ secrets.FTP_PROTOCOL || 'ftps' }}
